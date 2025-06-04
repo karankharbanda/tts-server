@@ -1,0 +1,52 @@
+name: Build and Deploy Spring Boot App to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v2
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build Spring Boot JAR
+        run: mvn clean package -DskipTests
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Build and Push Docker image to Artifact Registry
+        run: |
+          docker build -t us-central1-docker.pkg.dev/tts-app-455109/backend-repo/backend .
+          docker push us-central1-docker.pkg.dev/tts-app-455109/backend-repo/backend
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v1
+        with:
+          service: backend-service
+          region: us-central1
+          image: us-central1-docker.pkg.dev/tts-app-455109/backend-repo/backend
+          env_vars: |
+            SPRING_DATASOURCE_URL=jdbc:postgresql:///tt_db?cloudSqlInstance=tts-app-455109:us-central1:tts-postgres&socketFactory=com.google.cloud.sql.postgres.SocketFactory&user=postgres
+            GOOGLE_OAUTH_REDIRECT=https://backend-service-636763472617.us-central1.run.app/login/oauth2/code/google
+          secrets: |
+            SPRING_DATASOURCE_PASSWORD=db-password:latest
+            GOOGLE_OAUTH_CLIENT_ID=google-oauth-client-id:latest
+            GOOGLE_OAUTH_CLIENT_SECRET=google-oauth-client-secret:latest
+        
+        
