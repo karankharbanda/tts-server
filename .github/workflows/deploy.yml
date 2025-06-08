@@ -19,7 +19,7 @@ jobs:
           java-version: '17'
 
       - name: Build with Maven
-        run: ./mvnw clean package -DskipTests
+        run: mvn clean package -DskipTests
 
       - name: Set up Google Cloud CLI
         uses: google-github-actions/setup-gcloud@v1
